@@ -7,19 +7,25 @@ else
   echo "starting with no password"
 fi
 
-if [ -z ${PROXY_DOMAIN+x} ]; then
-  PROXY_DOMAIN_ARG=""
-else 
-  PROXY_DOMAIN_ARG="--proxy-domain=${PROXY_DOMAIN}"
+if [ -z ${ENABLE_TELEMETRY+x} ]; then
+  TELEMETRY_ARG="--disable-telemetry"
+else
+  TELEMETRY_ARG=""
+  echo "telemetry is enabled"
 fi
 
+# if [ -z ${LOG_LEVEL+x} ]; then
+#   LOG_ARG=""
+# else
+#   LOG_ARG="--log=${LOG_LEVEL}"
+#   echo "log level set to ${LOG_LEVEL}"
+# fi
+
 exec \
-	s6-setuidgid abc \
+    s6-setuidgid abc \
 		/usr/local/bin/code-server \
 			--bind-addr 0.0.0.0:8443 \
 			--user-data-dir /config/data \
 			--extensions-dir /config/extensions \
-			--disable-telemetry \
-			--auth "${AUTH}" \
-			"${PROXY_DOMAIN_ARG}" \
+			"${TELEMETRY_ARG}" --auth "${AUTH}" \
 			/config/workspace

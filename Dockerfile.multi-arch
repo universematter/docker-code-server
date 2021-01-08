@@ -1,0 +1,114 @@
+# pkg=libseccomp2_2.4.4-1~bpo10+1_armhf.deb
+# pkg="libseccomp2_2.5.0-3+b1_armhf.deb"
+# wget http://ftp.us.debian.org/debian/pool/main/libs/libseccomp/${pkg}
+# dpkg -i ${pkg}
+#ln -s "$NVM_DIR/versions/node/$(nvm version)/bin/node" "/usr/local/bin/node" && \
+#ln -s "$NVM_DIR/versions/node/$(nvm version)/bin/npm" "/usr/local/bin/npm" && \
+
+FROM ghcr.io/linuxserver/baseimage-ubuntu:bionic
+
+ARG BUILD_DATE
+ARG RELEASE
+
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+ENV HOME="/config" \
+  NODE_VERSION="lts/*" \
+  SHELL=/bin/bash
+
+WORKDIR $HOME
+
+RUN \
+  chsh -s /bin/bash && \
+  echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections && \
+  echo "**** install python & yarn repo ****" && \
+  apt-get update && \
+  apt-get install -y \
+  software-properties-common \
+  gnupg && \
+  add-apt-repository ppa:deadsnakes/ppa && \
+  curl -s https://deb.nodesource.com/gpgkey/nodesource.gpg.key | apt-key add - && \
+  curl -s https://dl.yarnpkg.com/debian/pubkey.gpg | apt-key add - && \
+  echo 'deb https://dl.yarnpkg.com/debian/ stable main' \
+  > /etc/apt/sources.list.d/yarn.list && \
+  curl -sL https://deb.nodesource.com/setup_14.x | bash - && \
+  echo "**** install build dependencies ****" && \
+  apt-get update && \
+  apt-get install -y \
+  nodejs \
+  build-essential \
+  libsecret-1-dev \
+  libx11-dev \
+  libxkbfile-dev \
+  git \
+  libffi-dev \
+  libssl-dev \
+  python-minimal \
+  python3 \
+  pkg-config && \
+  echo "**** install Node Version Manager ****" && \
+  echo 'export NVM_DIR="$HOME/.nvm"' >> "$HOME/.bashrc" && \
+  echo '[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"  # This loads nvm' >> "$HOME/.bashrc" && \
+  git clone https://github.com/nvm-sh/nvm.git .nvm && \
+  source $HOME/.nvm/nvm.sh && \
+  nvm install "$NODE_VERSION" && \
+  nvm alias default "$NODE_VERSION" && \
+  npm config set python python3 && \
+  update-alternatives --install /usr/local/bin/python python /usr/bin/python2 20 && \
+  update-alternatives --install /usr/local/bin/python python /usr/bin/python3 40 && \
+  update-alternatives --list python && \
+  echo "**** install runtime dependencies ****" && \
+  apt-get install -y \
+  dnsutils \
+  iproute2 \
+  iptables \
+  iputils-ping \
+  jq \
+  nano \
+  net-tools \
+  netcat \
+  python3-pip \
+  python3-venv \
+  sudo \
+  tcpdump \
+  traceroute \
+  yarn \
+  imagemagick \
+  inkscape \
+  msttcorefonts \
+  fontconfig \
+  && fc-cache -vr
+
+# https://github.com/cdr/code-server/blob/v3.8.0/install.sh
+RUN \
+  RELEASE="${RELEASE-$(curl -fsSLI -o /dev/null -w "%{url_effective}" https://github.com/cdr/code-server/releases/latest)}" && \
+  VERSION="${RELEASE#https://github.com/cdr/code-server/releases/tag/}" && \
+  VERSION="${VERSION#v}" && \
+  echo "**** install code-server ${VERSION} - ${RELEASE} ****" && \
+  yarn config set network-timeout 600000 -g && \
+ # yarn --production --verbose --frozen-lockfile global add code-server && \
+  yarn --verbose global add code-server && \
+  NPM_BIN_DIR="$(yarn global bin)" && echo "export PATH="$NPM_BIN_DIR:\$PATH"" >> "$HOME/.bashrc" && \
+  yarn cache clean && \
+  echo "**** clean up ****" && \
+  rm -rf \
+  /tmp/* \
+  /var/tmp/*
+
+ENV PATH="$(yarn global bin):${PATH}"
+
+COPY /root /
+
+RUN echo "**** install docker ****" && \
+  curl -fsSL https://get.docker.com/ | bash
+
+COPY --from=linuxserver/docker-compose:latest /usr/local/bin/docker-compose /usr/bin/docker-compose
+
+# Fix broken python plugin # https://github.com/cdr/code-server/issues/2341
+RUN mkdir -p ~/.local/share/code-server/ && \
+  mkdir -p ~/.local/share/code-server/User && \
+  echo "{\"extensions.autoCheckUpdates\": false, \"extensions.autoUpdate\": false}" > ~/.local/share/code-server/User/settings.json && \
+  curl -Lo ./ms-python-release.vsix https://github.com/microsoft/vscode-python/releases/download/2020.12.424452561/ms-python-release.vsix && \
+  code-server --install-extension ./ms-python-release.vsix || true
+
+EXPOSE 8443

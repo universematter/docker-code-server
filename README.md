@@ -281,7 +281,8 @@ Below are the instructions for updating containers:
 
 ### Image Update Notifications - Diun (Docker Image Update Notifier)
 
-**tip**: We recommend [Diun](https://crazymax.dev/diun/) for update notifications. Other tools that automatically update containers unattended are not recommended or supported.
+>[!TIP]
+>We recommend [Diun](https://crazymax.dev/diun/) for update notifications. Other tools that automatically update containers unattended are not recommended or supported.
 
 ## Building locally
 
@@ -306,6 +307,7 @@ Once registered you can define the dockerfile to use with `-f Dockerfile.aarch64
 
 ## Versions
 
+* **09.10.24:** - Manage permissions in /config/.ssh according to file type
 * **19.08.24:** - Rebase to Ubuntu Noble.
 * **01.07.23:** - Deprecate armhf. As announced [here](https://www.linuxserver.io/blog/a-farewell-to-arm-hf)
 * **05.10.22:** - Install recommended deps to maintain parity with the older images.
